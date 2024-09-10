@@ -29,7 +29,13 @@ const regesterUser = asyncHandler(async (req, res) => {
 
     //checking for files (cover and avatar)
     const avatarLocalPath = req.files?.avatar[0]?.path;
-    const coverimageLocalPath = req.files?.coverimage[0]?.path;
+
+    // const coverimageLocalPath = req.files?.coverimage[0]?.path;      // will return undefine
+
+    let coverimageLocalPath;
+    if(req.files && Array.isArray(req.files.coverimage) && req.files.coverimage.length > 0){
+        coverimageLocalPath = req.files.coverimage[0].path;
+    }
 
     //check avater is is there
     if (!avatarLocalPath) {

@@ -4,6 +4,20 @@ import { ApiError } from "../utils/ApiError.js";
 import { upoloadOnCloudinary } from "../utils/cloudinary.js";
 import { ApiSuccess } from "../utils/ApiSuccess.js";
 
+const generateAccessTokenAndRefreshToken = async (userId)=>{
+    try {
+        const user = await User.findById(userId)   
+        const accessToken = user.generateAccessToken()
+        const refreshToken = user.generateRefreshToken()
+
+        user.refreshToken = refreshToken
+        user.save({validateBeforeSave:false});
+
+        return {accessToken, refreshToken};
+    } catch (error) {
+        throw new ApiError(500, " Something went wrong while generating access and refresh token")
+    }
+}
 
 const regesterUser = asyncHandler(async (req, res) => {
     // res.status(200).json({ message: "user registered" })
@@ -74,5 +88,27 @@ const regesterUser = asyncHandler(async (req, res) => {
 
     return res.status(201).json(new ApiSuccess(200,createdUser,"User registered successfully"))
 })
+
+
+const loginUser = asyncHandler( async ( req, res ) =>{
+    
+    //takng data from user
+    const {email , username , password} = req.body;
+
+    //getting data from DB
+    const user = await User.findOne({$or: [{email},{username}]})
+
+    if(!user){
+        throw new ApiError(404, "User does not exists")
+    }
+
+   const isPasswordCorrect =  await user.isPasswordCorrect(password);
+
+   if(!isPasswordCorrect){
+    throw new ApiError(401, "Invalide user Credentials")
+   }
+
+})
+
 
 export { regesterUser }

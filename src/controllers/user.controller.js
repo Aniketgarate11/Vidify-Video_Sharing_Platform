@@ -4,6 +4,8 @@ import { ApiError } from "../utils/ApiError.js";
 import { upoloadOnCloudinary } from "../utils/cloudinary.js";
 import { ApiSuccess } from "../utils/ApiSuccess.js";
 
+
+//function to generate access and refresh Token When user logged in
 const generateAccessTokenAndRefreshToken = async (userId)=>{
     try {
         const user = await User.findById(userId)   
@@ -19,6 +21,7 @@ const generateAccessTokenAndRefreshToken = async (userId)=>{
     }
 }
 
+//route handeler for regester User
 const regesterUser = asyncHandler(async (req, res) => {
     // res.status(200).json({ message: "user registered" })
 
@@ -89,7 +92,7 @@ const regesterUser = asyncHandler(async (req, res) => {
     return res.status(201).json(new ApiSuccess(200,createdUser,"User registered successfully"))
 })
 
-
+//route handeler for Log-In User
 const loginUser = asyncHandler( async ( req, res ) =>{
     
     //takng data from user
@@ -108,7 +111,56 @@ const loginUser = asyncHandler( async ( req, res ) =>{
     throw new ApiError(401, "Invalide user Credentials")
    }
 
+   // generate and access - ref and Access token
+  const {accessToken, refreshToken} =await generateAccessTokenAndRefreshToken(user._id);
+
+  // get User from db with fresh refresh Token
+  const loggedInUser = User.findById(user._id).select("-refreshtoken -password")
+
+  //setting cookies i.e tokens
+
+  const options = {
+    httpOnly : true,
+    secure : true
+  }
+
+  return res.status(200)
+  .cookie("accessToken", accessToken, options)
+  .cookie("refreshToken", refreshToken, options)
+  .json(
+    new ApiSuccess(
+        200,
+        {
+            user : loggedInUser, accessToken, refreshToken
+        },
+        "User logged In successfully"
+    )
+  )
+
+})
+
+//route handeler for Log-out User
+const logoutUser = asyncHandler( async (req, res)=>{
+    await User.findByIdAndUpdate(
+        req.user._id,
+        {
+            $set : {refreshtoken:undefined}
+        },
+        {
+            new : true
+        }
+    )
+
+    const options = {
+        httpOnly : true,
+        secure : true
+    }
+
+    return res.status(200)
+    .clearCookie("accessToken",options)
+    .clearCookie("refreshToken",options)
+    .json(200,{},"User logged Out")
 })
 
 
-export { regesterUser }
+export { regesterUser, loginUser, logoutUser}

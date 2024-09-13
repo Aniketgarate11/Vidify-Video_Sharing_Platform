@@ -8,7 +8,9 @@ import { ApiSuccess } from "../utils/ApiSuccess.js";
 //function to generate access and refresh Token When user logged in
 const generateAccessTokenAndRefreshToken = async (userId)=>{
     try {
-        const user = await User.findById(userId)   
+        const user = await User.findById(userId)  
+        console.log(user);
+         
         const accessToken = user.generateAccessToken()
         const refreshToken = user.generateRefreshToken()
 
@@ -46,6 +48,8 @@ const regesterUser = asyncHandler(async (req, res) => {
 
     //checking for files (cover and avatar)
     const avatarLocalPath = req.files?.avatar[0]?.path;
+    console.log(avatarLocalPath);
+    
 
     // const coverimageLocalPath = req.files?.coverimage[0]?.path;      // will return undefine
 
@@ -97,25 +101,44 @@ const loginUser = asyncHandler( async ( req, res ) =>{
     
     //takng data from user
     const {email , username , password} = req.body;
+    console.log(email, password);
+    console.log(typeof(password));
+    console.log(password);
+    
+    
+    
 
     //getting data from DB
     const user = await User.findOne({$or: [{email},{username}]})
+    console.log(user);
+   console.log(typeof(user.password));
+   console.log(user.password);
+   
+    
+    console.log('i am here');
+    
+    
 
     if(!user){
         throw new ApiError(404, "User does not exists")
     }
 
    const isPasswordCorrect =  await user.isPasswordCorrect(password);
+   console.log(isPasswordCorrect);
+   
 
    if(!isPasswordCorrect){
     throw new ApiError(401, "Invalide user Credentials")
    }
+   
+   console.log('password is correct');
+   
 
    // generate and access - ref and Access token
   const {accessToken, refreshToken} =await generateAccessTokenAndRefreshToken(user._id);
 
   // get User from db with fresh refresh Token
-  const loggedInUser = User.findById(user._id).select("-refreshtoken -password")
+  const loggedInUser = await User.findById(user._id).select("-refreshtoken -password")
 
   //setting cookies i.e tokens
 

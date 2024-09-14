@@ -3,13 +3,15 @@ import { User } from "../models/User.model.js";
 import { ApiError } from "../utils/ApiError.js";
 import { upoloadOnCloudinary } from "../utils/cloudinary.js";
 import { ApiSuccess } from "../utils/ApiSuccess.js";
+import jwt from "jsonwebtoken"
+import { json } from "express";
 
 
 //function to generate access and refresh Token When user logged in
 const generateAccessTokenAndRefreshToken = async (userId)=>{
     try {
         const user = await User.findById(userId)  
-        console.log(user);
+        // console.log(user);
          
         const accessToken = user.generateAccessToken()
         const refreshToken = user.generateRefreshToken()
@@ -101,21 +103,23 @@ const loginUser = asyncHandler( async ( req, res ) =>{
     
     //takng data from user
     const {email , username , password} = req.body;
-    console.log(email, password);
-    console.log(typeof(password));
-    console.log(password);
+
+    // console.log(email, password);
+    // console.log(typeof(password));
+
     
     
     
 
     //getting data from DB
     const user = await User.findOne({$or: [{email},{username}]})
-    console.log(user);
-   console.log(typeof(user.password));
-   console.log(user.password);
+
+//     console.log(user);
+//    console.log(typeof(user.password));
+//    console.log(user.password);
    
     
-    console.log('i am here');
+
     
     
 
@@ -124,14 +128,14 @@ const loginUser = asyncHandler( async ( req, res ) =>{
     }
 
    const isPasswordCorrect =  await user.isPasswordCorrect(password);
-   console.log(isPasswordCorrect);
+
+//    console.log(isPasswordCorrect);
    
 
    if(!isPasswordCorrect){
     throw new ApiError(401, "Invalide user Credentials")
    }
    
-   console.log('password is correct');
    
 
    // generate and access - ref and Access token
@@ -156,6 +160,7 @@ const loginUser = asyncHandler( async ( req, res ) =>{
         {
             user : loggedInUser, accessToken, refreshToken
         },
+
         "User logged In successfully"
     )
   )
@@ -164,6 +169,8 @@ const loginUser = asyncHandler( async ( req, res ) =>{
 
 //route handeler for Log-out User
 const logoutUser = asyncHandler( async (req, res)=>{
+    // console.log(req.user);
+    
     await User.findByIdAndUpdate(
         req.user._id,
         {
@@ -182,8 +189,50 @@ const logoutUser = asyncHandler( async (req, res)=>{
     return res.status(200)
     .clearCookie("accessToken",options)
     .clearCookie("refreshToken",options)
-    .json(200,{},"User logged Out")
+    .json(new ApiSuccess(200,{},"User logged Out"))
+})
+
+const refreshAccessToken = asyncHandler( async (req, res)=>{
+
+    const incomingRefreshToken = req.cookies.refreshAccessToken || req.body.refreshAccessToken;
+
+    if(!incomingRefreshToken){
+        throw new ApiError(401,"Unauthorized request")
+    }
+
+   try {
+    const decodedToken = jwt.verify(incomingRefreshToken,process.env.REFRESH_TOKEN_SECRET)
+ 
+    const user = User.findById(decodedToken?._id)
+ 
+    if(!user){
+     throw new ApiError(401,'Invalide refresh token')
+    }
+ 
+    if (incomingRefreshToken !== user?.refreshToken) {
+        throw new ApiError(401, 'Refresh token is expired or used')
+    }
+     
+   const {newRefreshToken, accessToken} =  await generateAccessTokenAndRefreshToken(user._id);
+ 
+   options ={
+     httpOnly : true,
+     secure : true
+   }
+ 
+   return res
+   .status(200)
+   .cookie("accessToken", accessToken ,options)
+   .cookie("refreshToken", newRefreshToken , options)
+   .json(new ApiSuccess(
+     200,
+     {accessToken , refreshToken : newRefreshToken},
+     "access token refreshed"
+   ))
+   } catch (error) {
+       throw new ApiError(401, error?.message || "Unauthorized request")
+   }
 })
 
 
-export { regesterUser, loginUser, logoutUser}
+export { regesterUser, loginUser, logoutUser, refreshAccessToken}
